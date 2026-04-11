@@ -1,0 +1,79 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+:root {
+  --primary: #fbbf24; /* Golden Yellow */
+  --secondary: #059669; /* Emerald Green */
+  --background: #FFFFFF;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+}
+
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--background);
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, 
+.premium-serif {
+  font-family: 'Playfair Display', serif;
+  letter-spacing: -0.01em;
+}
+
+/* Custom Utilities for smooth transitions */
+.smooth-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Remove Number Input Spinners (Up/Down arrows) */
+
+/* Chrome, Safari, Edge, Opera */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+input[type=number] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Hide scrollbar utility */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* WhatsApp Floating Button Fix */
+.floating-whatsapp {
+  z-index: 40;
+  bottom: 2rem;
+  right: 2rem;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
+  transition: transform 0.3s ease;
+}
+
+.floating-whatsapp:hover {
+  transform: scale(1.1);
+}
+
+@media (max-width: 640px) {
+  .floating-whatsapp {
+    bottom: 1rem;
+    right: 1rem;
+    transform: scale(0.85);
+  }
+}
