@@ -33,3 +33,20 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
 };
 
 export default ProtectedRoute;
+
+// Redirects logged-in users away from auth pages (login, signup, forgot-password, etc.)
+export const GuestRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="animate-spin text-[#fbbf24] w-12 h-12" />
+      </div>
+    );
+  }
+
+  if (user) return <Navigate to="/" replace />;
+
+  return children;
+};

@@ -1,100 +1,87 @@
-import React from 'react';
-import BlogCard from '../components/BlogCard';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
+import { API_BASE_URL } from '../config';
 
-/**
- * Blog Page Component
- * Displays the hero section, the list of blog posts using BlogCard, and the newsletter section.
- */
+const fmt = (d) => {
+  const date = new Date(d);
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
 const Blog = () => {
-  const blogs = [
-    {
-      id: 1,
-      title: "Top 5 Surprise Birthday Ideas on a Budget 🎈",
-      category: "Party Planning",
-      date: "Nov 15, 2026",
-      author: "Flora Team",
-      image: "/blog/birthday.png",
-      excerpt: "Surprising your loved ones doesn't have to be expensive! With these 5 simple tips, you can plan the perfect home party without breaking the bank."
-    },
-    {
-      id: 2,
-      title: "How to Choose the Perfect Anniversary Gift: 2026 Guide 💝",
-      category: "Gifting Tips",
-      date: "Nov 08, 2026",
-      author: "Aditi Sharma",
-      image: "/blog/anniversary.png",
-      excerpt: "Every anniversary is special! Learn how to select a meaningful gift that will bring a genuine smile to your partner's face."
-    },
-    {
-      id: 3,
-      title: "Modern Decoration Trends: Neon Signs & Pastel Balloons ✨",
-      category: "Decorations",
-      date: "Oct 25, 2026",
-      author: "Flora Team",
-      image: "/blog/decoration.png",
-      excerpt: "Say goodbye to old-school decor. Discover the magic of neon signs and pastel balloon arches that make every party 'Instagrammable'."
-    },
-    {
-      id: 4,
-      title: "The Ultimate Guide to Selecting the Perfect Celebration Cake 🎂",
-      category: "Celebration",
-      date: "Oct 12, 2026",
-      author: "Expert Baker",
-      image: "/blog/cake.png",
-      excerpt: "From flavor profiles to artistic designs, we guide you on how to pick a cake that tastes as incredible as it looks."
-    }
-  ];
+  const [blogs, setBlogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/blogs`)
+      .then(r => r.json())
+      .then(data => { setBlogs(Array.isArray(data) ? data : []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
 
   return (
-    <div className="bg-white min-h-screen pb-24 font-sans text-gray-900">
-      
-      {/* 🚀 Header: Hero Section */}
-      <div className="bg-white pt-20 pb-12 text-center border-b border-gray-50">
-        <div className="inline-block px-4 py-1 mb-6 rounded-full bg-amber-50 text-amber-600 text-[10px] font-black uppercase tracking-widest">
-            Flora Inspiration
-        </div>
-        <h1 className="text-4xl md:text-6xl font-black text-gray-900 mb-6 premium-serif tracking-tight px-4 leading-tight">
-          Flora Blog: Party & Gifting <span className="text-[#fbbf24]">Expert Advice</span>
-        </h1>
-        <p className="text-lg text-gray-500 max-w-2xl mx-auto font-medium px-4">
-          Discover the latest trends, DIY tips, and professional advice to make your next celebration truly unforgettable.
-        </p>
-      </div>
-
-      {/* 📄 Content: Blog Grid Section */}
-      <div className="container mx-auto px-4 py-16 max-w-7xl">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 lg:gap-16">
-          {blogs.map(blog => (
-            <BlogCard key={blog.id} blog={blog} />
-          ))}
+    <div className="bg-white min-h-screen">
+      {/* Breadcrumb */}
+      <div className="border-b border-gray-100">
+        <div className="container mx-auto px-4 py-3 text-sm text-gray-500">
+          <Link to="/" className="hover:text-[#c9a84c] transition-colors">Home</Link>
+          <span className="mx-2">/</span>
+          <span className="text-gray-900 font-semibold">Blog</span>
         </div>
       </div>
 
-      {/* 📬 Footer: Newsletter / CTA Section */}
-      <div className="container mx-auto px-4 mt-12 mb-12">
-        <div className="bg-[#10141b] rounded-[50px] py-16 p-8 md:p-20 text-center relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-64 h-64 bg-[#fbbf24]/5 rounded-full -translate-x-1/2 -translate-y-1/2 blur-3xl"></div>
-            <div className="relative z-10">
-                <h2 className="text-3xl md:text-5xl font-black text-white mb-6 premium-serif leading-tight">
-                    Want More Surprise Tips? ✨
-                </h2>
-                <p className="text-gray-400 text-lg mb-10 max-w-xl mx-auto">
-                    Join our exclusive newsletter and get the best decoration ideas and discounts delivered straight to your inbox.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-4 max-w-lg mx-auto">
-                    <input 
-                        type="email" 
-                        placeholder="Your email address..." 
-                        className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-medium focus:outline-none focus:border-[#fbbf24] transition-colors"
+      <div className="container mx-auto px-4 py-10 pb-24 max-w-6xl">
+        <h1 className="text-3xl font-black text-gray-900 mb-10 tracking-tight">Blog</h1>
+
+        {loading ? (
+          <div className="flex justify-center py-32">
+            <Loader2 className="animate-spin text-[#c9a84c] w-10 h-10" />
+          </div>
+        ) : blogs.length === 0 ? (
+          <div className="text-center py-32 text-gray-400">
+            <p className="text-lg font-semibold">No posts yet.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            {blogs.map(blog => (
+              <Link
+                key={blog._id}
+                to={`/blog/${blog._id}`}
+                className="group flex flex-col bg-white border border-gray-100 rounded-2xl overflow-hidden hover:shadow-lg transition-shadow duration-300"
+              >
+                {/* Image */}
+                <div className="w-full aspect-[16/10] overflow-hidden bg-gray-100">
+                  {blog.image_url ? (
+                    <img
+                      src={blog.image_url}
+                      alt={blog.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
-                    <button className="bg-[#fbbf24] text-black font-black px-10 py-4 rounded-2xl hover:bg-[#f59e0b] transition-colors shadow-lg shadow-[#fbbf24]/10">
-                        Subscribe Now
-                    </button>
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-[#f9f5ee] to-[#e8dfc8] flex items-center justify-center">
+                      <span className="text-4xl">📝</span>
+                    </div>
+                  )}
                 </div>
-            </div>
-        </div>
+
+                {/* Content */}
+                <div className="p-5 flex flex-col gap-2 flex-1">
+                  <p className="text-xs text-gray-400 font-medium">{fmt(blog.publishedAt)}</p>
+                  <h2 className="text-base font-bold text-gray-900 leading-snug line-clamp-2 group-hover:text-[#c9a84c] transition-colors">
+                    {blog.title}
+                  </h2>
+                  {blog.excerpt && (
+                    <p className="text-sm text-gray-500 leading-relaxed line-clamp-3 flex-1">{blog.excerpt}</p>
+                  )}
+                  <span className="mt-2 text-sm font-bold text-[#c9a84c] flex items-center gap-1 group-hover:gap-2 transition-all">
+                    Read now <span>→</span>
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
-      
     </div>
   );
 };

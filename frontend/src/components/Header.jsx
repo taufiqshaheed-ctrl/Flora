@@ -1,211 +1,240 @@
-import React, { useState, useEffect } from 'react';
-import { ShoppingCart, User, Search, MapPin, Zap, ShieldAlert, Menu, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ShoppingCart, User, Search, ShieldAlert, Menu, X, Tag, Heart } from 'lucide-react';
 import { Link, NavLink, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { useWishlist } from '../context/WishlistContext';
+
+// Social icon SVGs (inline, lightweight)
+const SocialIcons = () => (
+  <div className="flex items-center gap-3">
+    <a href="https://www.instagram.com/floral_adda_official/" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-[#c9a84c] transition-colors">
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+    </a>
+    <a href="https://www.facebook.com/" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-[#c9a84c] transition-colors">
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+    </a>
+    <a href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-[#c9a84c] transition-colors">
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M23.495 6.205a3.007 3.007 0 0 0-2.088-2.088c-1.87-.501-9.396-.501-9.396-.501s-7.507-.01-9.396.501A3.007 3.007 0 0 0 .527 6.205a31.247 31.247 0 0 0-.522 5.805 31.247 31.247 0 0 0 .522 5.783 3.007 3.007 0 0 0 2.088 2.088c1.868.502 9.396.502 9.396.502s7.506 0 9.396-.502a3.007 3.007 0 0 0 2.088-2.088 31.247 31.247 0 0 0 .5-5.783 31.247 31.247 0 0 0-.5-5.805zM9.609 15.601V8.408l6.264 3.602z"/></svg>
+    </a>
+  </div>
+);
 
 const Header = () => {
   const { cartCount } = useCart();
   const { user, logout } = useAuth();
+  const { wishlist } = useWishlist();
+  const wishlistCount = wishlist.length;
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  // Sync state with URL params
   useEffect(() => {
     const q = searchParams.get('search');
-    if (q) setSearchQuery(q);
-    else setSearchQuery('');
+    setSearchQuery(q || '');
   }, [searchParams]);
 
   const handleSearch = (e) => {
     e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/?search=${encodeURIComponent(searchQuery.trim())}`);
-    } else {
-      navigate('/');
-    }
+    if (searchQuery.trim()) navigate(`/?search=${encodeURIComponent(searchQuery.trim())}`);
+    else navigate('/');
   };
 
+  const navLink = ({ isActive }) =>
+    isActive
+      ? 'text-[#c9a84c] font-semibold border-b border-[#c9a84c] pb-0.5'
+      : 'text-gray-700 hover:text-[#c9a84c] transition-colors';
+
   return (
-    <header className="w-full bg-white relative z-50">
-      {/* Top Notice Bar */}
-      <div className="bg-[#fbbf24] text-black text-xs font-semibold">
-        <div className="container mx-auto px-4 py-1.5 flex justify-between items-center bg-[#fbbf24]">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
-              <MapPin size={12} className="text-red-600" /> <span className="hidden xs:inline">Worldwide</span> Delivery
-            </span>
-            <span className="text-black/20 hidden sm:inline">|</span>
-            <span className="flex items-center gap-1 shrink-0 whitespace-nowrap hidden sm:flex">
-              <Zap size={12} className="text-white" /> Same Day Delivery Available
-            </span>
-          </div>
-          <div className="flex items-center gap-3 sm:gap-4 shrink-0">
-            <Link to="/contact" className="hover:underline whitespace-nowrap">Help</Link>
-            <Link to="/contact" className="hover:underline whitespace-nowrap">Contact</Link>
-          </div>
+    <header className="w-full bg-white border-b border-gray-100 sticky top-0 z-50 shadow-sm">
+
+      {/* Top bar: delivery notice + social */}
+      <div className="bg-gray-50 border-b border-gray-100 text-xs text-gray-500">
+        <div className="container mx-auto px-4 py-1.5 flex items-center justify-between">
+          <span className="font-medium">🚀 Fast Delivery within 1–12 hours in the city</span>
+          <SocialIcons />
         </div>
       </div>
 
-      {/* Main Header */}
-      <div className="container mx-auto px-4 py-4 flex items-center justify-between gap-4">
-        
+      {/* Main row: logo | search | icons */}
+      <div className="container mx-auto px-4 py-3 flex items-center gap-4">
+
         {/* Logo */}
         <Link to="/" className="flex-shrink-0">
-          <div className="bg-[#fbbf24] px-4 py-1.5 rounded-md font-black text-xl tracking-wide text-black shadow-sm">
-            Flora
-          </div>
+          <img src="/floral-adda-final-logo.webp" alt="Floral Adda" className="h-11 w-auto object-contain" />
         </Link>
 
-        {/* Mobile Menu Toggle */}
-        <button 
+        {/* Mobile hamburger */}
+        <button
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="md:hidden p-2 text-gray-700 hover:text-[#fbbf24] transition-colors"
+          className="md:hidden p-2 text-gray-600 hover:text-[#c9a84c] transition-colors ml-auto"
         >
-          {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
+          {isMobileMenuOpen ? <X size={26} /> : <Menu size={26} />}
         </button>
 
-        {/* Search Bar */}
-        <div className="flex-1 max-w-2xl hidden md:block">
-          <form onSubmit={handleSearch} className="relative border border-gray-300 rounded-md overflow-hidden bg-white">
-            <input 
-              type="text" 
-              placeholder="Search products..." 
+        {/* Search bar (desktop) */}
+        <div className="flex-1 max-w-xl hidden md:block">
+          <form onSubmit={handleSearch} className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search for products.."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-4 pr-10 py-2 outline-none text-sm text-gray-700 placeholder-gray-400"
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-full text-sm text-gray-700 placeholder-gray-400 outline-none focus:border-[#c9a84c] transition-colors"
             />
-            <button type="submit" className="absolute right-0 top-0 bottom-0 px-3 text-gray-400 hover:text-[#fbbf24] transition-colors">
-              <Search size={18} />
-            </button>
           </form>
         </div>
 
-        {/* Right Actions */}
-        <div className="flex items-center gap-6">
+        {/* Right icons: Categories | Cart | Account */}
+        <div className="hidden md:flex items-center gap-6 ml-auto">
+
+          {/* Categories */}
+          {(!user || user.role !== 'admin') && (
+            <Link to="/categories" className="flex flex-col items-center gap-0.5 text-gray-600 hover:text-[#c9a84c] transition-colors" title="Categories">
+              <Tag size={20} />
+              <span className="text-[10px] font-semibold">Categories</span>
+            </Link>
+          )}
+
+          {/* Wishlist */}
+          {(!user || user.role !== 'admin') && (
+            <Link to="/wishlist" className="relative flex flex-col items-center gap-0.5 text-gray-600 hover:text-[#c9a84c] transition-colors" title="Wishlist">
+              <Heart size={20} />
+              {wishlistCount > 0 && (
+                <span className="absolute -top-1.5 -right-2 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                  {wishlistCount > 9 ? '9+' : wishlistCount}
+                </span>
+              )}
+              <span className="text-[10px] font-semibold">Wishlist</span>
+            </Link>
+          )}
+
+          {/* Cart */}
+          {(!user || user.role !== 'admin') && (
+            <Link to="/cart" className="relative flex flex-col items-center gap-0.5 text-gray-600 hover:text-[#c9a84c] transition-colors" title="Cart">
+              <ShoppingCart size={20} />
+              <span className="text-[10px] font-semibold">Cart</span>
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-[#c9a84c] text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                  {cartCount}
+                </span>
+              )}
+            </Link>
+          )}
+
+          {/* Account */}
           {user ? (
             <div className="flex items-center gap-3">
-              <Link to="/dashboard" className="flex items-center gap-2 text-gray-800 hover:text-[#fbbf24] transition-colors">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm border ${user.role === 'admin' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-gray-100 border-gray-200'}`}>
+              <Link to="/dashboard" className="flex flex-col items-center gap-0.5 text-gray-600 hover:text-[#c9a84c] transition-colors" title="Account">
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs border ${user.role === 'admin' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-gray-100 border-gray-200'}`}>
                   {user.name.charAt(0).toUpperCase()}
                 </div>
-                <span className="text-sm font-semibold hidden lg:block">Hi, {user.name}</span>
+                <span className="text-[10px] font-semibold">Account</span>
               </Link>
-              <button 
-                onClick={() => {
-                  logout();
-                  navigate('/');
-                }} 
-                className="text-xs text-red-500 hover:text-red-700 font-medium hover:underline"
-              >
+              {user.role === 'admin' && (
+                <Link to="/admin" className="flex items-center gap-1 text-xs font-bold text-red-600 hover:text-red-700">
+                  <ShieldAlert size={16} /> Admin
+                </Link>
+              )}
+              <button onClick={() => { logout(); navigate('/'); }} className="text-[11px] text-gray-400 hover:text-red-500 transition-colors">
                 Logout
               </button>
             </div>
           ) : (
-            <Link to="/login" className="text-gray-700 hover:text-[#fbbf24] transition-colors" title="Login / Register">
-              <User size={24} />
+            <Link to="/login" className="flex flex-col items-center gap-0.5 text-gray-600 hover:text-[#c9a84c] transition-colors" title="Account">
+              <User size={20} />
+              <span className="text-[10px] font-semibold">Account</span>
             </Link>
           )}
 
-          <div className="flex items-center gap-4">
-            {(!user || user.role !== 'admin') && (
-              <Link to="/cart">
-                <button className="text-gray-700 hover:text-[#fbbf24] transition-colors relative">
-                  <ShoppingCart size={24} />
-                  {cartCount > 0 && (
-                    <span className="absolute -top-2 -right-2 bg-[#fbbf24] text-black text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center border border-white">
-                      {cartCount}
-                    </span>
-                  )}
-                </button>
+        </div>
+      </div>
+
+      {/* Desktop Nav */}
+      <nav className="hidden md:block border-t border-gray-100">
+        <div className="container mx-auto px-4">
+          <ul className="flex items-center gap-7 text-sm py-2.5 overflow-x-auto whitespace-nowrap">
+            {user?.role === 'admin' ? (
+              <>
+                <li><NavLink to="/admin" className={navLink}><span className="flex items-center gap-1"><ShieldAlert size={14} /> Admin Dashboard</span></NavLink></li>
+                <li><NavLink to="/" className={navLink}>View Store</NavLink></li>
+              </>
+            ) : (
+              <>
+                <li><NavLink to="/wishlist" className={navLink}>Wishlist</NavLink></li>
+                <li><NavLink to="/about" className={navLink}>About Us</NavLink></li>
+                <li><NavLink to="/faq" className={navLink}>Care Guide</NavLink></li>
+                <li><NavLink to="/returns" className={navLink}>Refund Policy</NavLink></li>
+                <li><NavLink to="/terms" className={navLink}>Terms &amp; conditions</NavLink></li>
+                <li><NavLink to="/blog" className={navLink}>Blog</NavLink></li>
+              </>
+            )}
+          </ul>
+        </div>
+      </nav>
+
+      {/* Mobile search */}
+      <div className="px-4 pb-3 md:hidden">
+        <form onSubmit={handleSearch} className="relative">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search for products.."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-full text-sm outline-none"
+          />
+        </form>
+      </div>
+
+      {/* Mobile Sidebar */}
+      <div className={`fixed inset-0 z-50 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 md:hidden`}>
+        <div className="absolute inset-0 bg-black/40" onClick={() => setIsMobileMenuOpen(false)} />
+        <div className="relative w-72 h-full bg-white shadow-2xl flex flex-col pt-16 px-6 overflow-y-auto">
+          <button onClick={() => setIsMobileMenuOpen(false)} className="absolute top-4 right-4 p-2 text-gray-400"><X size={22} /></button>
+
+          <img src="/floral-adda-final-logo.webp" alt="Floral Adda" className="h-10 w-auto object-contain mb-6 self-start" />
+
+          <ul className="flex flex-col gap-4 text-[15px] font-medium">
+            {user?.role === 'admin' ? (
+              <>
+                <li><NavLink to="/admin" onClick={() => setIsMobileMenuOpen(false)} className="text-red-600 flex items-center gap-2"><ShieldAlert size={18} /> Admin Panel</NavLink></li>
+                <li><NavLink to="/" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-700">Live Store</NavLink></li>
+              </>
+            ) : (
+              <>
+                <li><NavLink to="/wishlist" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-700">Wishlist</NavLink></li>
+                <li><NavLink to="/about" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-700">About Us</NavLink></li>
+                <li><NavLink to="/faq" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-700">Care Guide</NavLink></li>
+                <li><NavLink to="/returns" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-700">Refund Policy</NavLink></li>
+                <li><NavLink to="/terms" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-700">Terms &amp; conditions</NavLink></li>
+                <li><NavLink to="/blog" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-700">Blog</NavLink></li>
+              </>
+            )}
+          </ul>
+
+          <div className="mt-auto pb-8 pt-6 border-t border-gray-100 flex flex-col gap-3">
+            <div className="flex items-center gap-3 mb-1"><SocialIcons /></div>
+            {user ? (
+              <button onClick={() => { logout(); setIsMobileMenuOpen(false); navigate('/'); }} className="w-full border border-red-200 text-red-500 font-semibold py-2.5 rounded-lg text-sm">
+                Logout
+              </button>
+            ) : (
+              <Link to="/login" onClick={() => setIsMobileMenuOpen(false)} className="w-full bg-[#c9a84c] hover:bg-[#b8973d] text-white font-bold py-2.5 rounded-lg text-center text-sm transition-colors">
+                Login / Signup
               </Link>
             )}
           </div>
         </div>
-
       </div>
 
-      {/* Desktop Navigation Menu */}
-      <div className="container mx-auto px-4 pb-3 border-b border-gray-100 hidden md:block">
-        <ul className="flex items-center gap-6 text-[15px] font-medium overflow-x-auto whitespace-nowrap">
-          {user && user.role === 'admin' ? (
-            <>
-              <li>
-                <NavLink to="/admin" className={({ isActive }) => isActive ? 'text-red-600 font-bold border-b-2 border-red-600 pb-3 flex items-center gap-2' : 'text-gray-800 hover:text-red-600 pb-3 transition-colors flex items-center gap-2'}>
-                  <ShieldAlert size={18} /> Admin Dashboard
-                </NavLink>
-              </li>
-              <li><NavLink to="/" className="text-gray-800 hover:text-[#ff5e00] pb-3 transition-colors">View Live Store</NavLink></li>
-            </>
-          ) : (
-            <>
-              <li><NavLink to="/" className={({ isActive }) => isActive && window.location.pathname === '/' ? 'text-[#ff5e00] font-bold border-b-2 border-[#ff5e00] pb-3' : 'text-gray-800 hover:text-[#ff5e00] pb-3 transition-colors'}>Home</NavLink></li>
-              <li><NavLink to="/delivery" className={({ isActive }) => isActive ? 'text-[#ff5e00] font-bold border-b-2 border-[#ff5e00] pb-3' : 'text-gray-800 hover:text-[#ff5e00] pb-3 transition-colors'}>Delivery</NavLink></li>
-              <li><NavLink to="/contact" className={({ isActive }) => isActive ? 'text-[#ff5e00] font-bold border-b-2 border-[#ff5e00] pb-3' : 'text-gray-800 hover:text-[#ff5e00] pb-3 transition-colors'}>Contact</NavLink></li>
-              <li><NavLink to="/payment-delivery" className={({ isActive }) => isActive ? 'text-[#ff5e00] font-bold border-b-2 border-[#ff5e00] pb-3' : 'text-gray-800 hover:text-[#ff5e00] pb-3 transition-colors'}>Payments</NavLink></li>
-              <li><NavLink to="/blog" className={({ isActive }) => isActive ? 'text-[#ff5e00] font-bold border-b-2 border-[#ff5e00] pb-3' : 'text-gray-800 hover:text-[#ff5e00] pb-3 transition-colors'}>Blog</NavLink></li>
-              <li><NavLink to="/dashboard" className={({ isActive }) => isActive ? 'text-[#ff5e00] font-bold border-b-2 border-[#ff5e00] pb-3' : 'text-gray-800 hover:text-[#ff5e00] pb-3 transition-colors'}>My Account</NavLink></li>
-            </>
-          )}
-        </ul>
-      </div>
-
-      {/* Mobile Sidebar Navigation */}
-      <div className={`fixed inset-0 z-50 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out md:hidden`}>
-        <div className="absolute inset-0 bg-black/50" onClick={() => setIsMobileMenuOpen(false)}></div>
-        <div className="relative w-72 h-full bg-white shadow-2xl flex flex-col pt-20 px-6">
-          <button onClick={() => setIsMobileMenuOpen(false)} className="absolute top-4 right-4 p-2 text-gray-500"><X size={24} /></button>
-          <h2 className="text-xl font-black mb-8 border-b pb-4 text-black">Menu</h2>
-          <ul className="flex flex-col gap-5 text-lg font-bold">
-            {user && user.role === 'admin' ? (
-              <>
-                <li><NavLink to="/admin" onClick={() => setIsMobileMenuOpen(false)} className="text-red-600 flex items-center gap-2"><ShieldAlert size={20} /> Admin Panel</NavLink></li>
-                <li><NavLink to="/" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-800">Live Store</NavLink></li>
-              </>
-            ) : (
-              <>
-                <li><NavLink to="/" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-800">Home</NavLink></li>
-                <li><NavLink to="/delivery" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-800">Delivery</NavLink></li>
-                <li><NavLink to="/contact" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-800">Contact</NavLink></li>
-                <li><NavLink to="/payment-delivery" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-800">Payments</NavLink></li>
-                <li><NavLink to="/blog" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-800">Blog</NavLink></li>
-                <li><NavLink to="/dashboard" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-800">My Account</NavLink></li>
-              </>
-            )}
-          </ul>
-          <div className="mt-auto pb-10 flex flex-col gap-4">
-             {user ? (
-               <button onClick={() => { logout(); setIsMobileMenuOpen(false); navigate('/'); }} className="w-full bg-red-50 text-red-600 font-bold py-3 rounded-lg border border-red-100">Logout</button>
-             ) : (
-               <>
-                 <Link to="/login" onClick={() => setIsMobileMenuOpen(false)} className="w-full bg-[#fbbf24] text-black font-bold py-3 rounded-lg text-center shadow-sm">Login / Signup</Link>
-               </>
-             )}
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile Search */}
-      <div className="px-4 pb-4 md:hidden">
-        <form onSubmit={handleSearch} className="relative border border-gray-300 rounded-md overflow-hidden bg-white">
-          <input 
-            type="text" 
-            placeholder="Search products..." 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-4 pr-10 py-2 outline-none text-sm text-gray-700 placeholder-gray-400"
-          />
-          <button type="submit" className="absolute right-0 top-0 bottom-0 px-3 text-gray-400 hover:text-[#fbbf24] transition-colors">
-            <Search size={18} />
-          </button>
-        </form>
-      </div>
-
-      {/* WhatsApp Icon */}
-      <a href="https://wa.me/918877803931" target="_blank" rel="noopener noreferrer" className="fixed z-50 bg-[#25D366] text-white p-3 rounded-full shadow-lg hover:scale-110 transition-transform floating-whatsapp border-2 border-white" title="Chat on WhatsApp">
-        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16">
+      {/* WhatsApp button */}
+      <a href="https://wa.me/918877803931" target="_blank" rel="noopener noreferrer"
+        className="fixed z-50 bottom-6 right-6 bg-[#25D366] text-white p-3.5 rounded-full shadow-xl hover:scale-110 transition-transform border-2 border-white"
+        title="Chat on WhatsApp"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="currentColor" viewBox="0 0 16 16">
           <path d="M13.601 2.326A7.854 7.854 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.933 7.933 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.898 7.898 0 0 0 13.6 2.326zM7.994 14.521a6.573 6.573 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.557 6.557 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592zm3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.729.729 0 0 0-.529.247c-.182.198-.691.677-.691 1.654 0 .977.71 1.916.81 2.049.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232z"/>
         </svg>
       </a>
@@ -214,5 +243,3 @@ const Header = () => {
 };
 
 export default Header;
-
-

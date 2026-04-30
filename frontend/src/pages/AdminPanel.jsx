@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   Package, Trash2, Plus, RefreshCw, BarChart2, ShieldAlert, Edit,
   MessageSquare, ShoppingBag, Loader2, User, Mail, Calendar,
-  CreditCard, Tag, Users, CheckCircle2, ChevronDown
+  CreditCard, Tag, Users, CheckCircle2, ChevronDown, FileText, Save, BookOpen, MapPin
 } from 'lucide-react';
 import { API_ENDPOINTS, API_BASE_URL } from '../config';
 import { useAuth } from '../context/AuthContext';
@@ -26,12 +26,29 @@ const AdminPanel = () => {
   const [allOrders, setAllOrders] = useState([]);
   const [messages, setMessages] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
+  const [careGuide, setCareGuide] = useState({ title: 'Care Guide', content: '' });
+  const [careGuideSaving, setCareGuideSaving] = useState(false);
+  const [careGuideSaved, setCareGuideSaved] = useState(false);
+
+  // Blog state
+  const [blogs, setBlogs] = useState([]);
+  const [blogForm, setBlogForm] = useState({ title: '', excerpt: '', content: '', image_url: '', publishedAt: '', h1: '', metaTitle: '', metaKeywords: '', metaDescription: '', contentImages: [] });
+  const [editingBlogId, setEditingBlogId] = useState(null);
+  const [blogSaving, setBlogSaving] = useState(false);
+  const [blogDeleteId, setBlogDeleteId] = useState(null);
+  const [blogImageFile, setBlogImageFile] = useState(null);
+
+  // Pincode state
+  const [pincodes, setPincodes] = useState([]);
+  const [pincodeInput, setPincodeInput] = useState('');
+  const [pincodeArea, setPincodeArea] = useState('');
+  const [pincodeAdding, setPincodeAdding] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [imageFile, setImageFile] = useState(null);
   const [editingProductId, setEditingProductId] = useState(null);
-  const [formData, setFormData] = useState({ name: '', price: '', image_url: '', categoryId: '' });
+  const [formData, setFormData] = useState({ name: '', price: '', originalPrice: '', description: '', image_url: '', categoryId: '' });
 
   // Delete confirmation modal
   const [deleteModal, setDeleteModal] = useState(null); // { id, name } | null
@@ -50,6 +67,28 @@ const AdminPanel = () => {
   const authHeader = () => {
     const token = localStorage.getItem('flora_token');
     return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
+  // Validate image file before upload — returns error string or null
+  const validateImageFile = (file) => {
+    if (!file) return null;
+    const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+    const ALLOWED = ['image/jpeg','image/jpg','image/png','image/webp','image/gif','image/heic','image/heif','image/bmp','image/tiff'];
+    if (file.size > MAX_SIZE) return `File is too large (${(file.size/1024/1024).toFixed(1)} MB). Max 10 MB.`;
+    if (!ALLOWED.includes(file.type.toLowerCase())) return `File type "${file.type}" not supported. Use JPEG, PNG, WebP, or GIF.`;
+    return null;
+  };
+
+  // Upload a file and return its URL — throws with a user-friendly message on failure
+  const uploadFile = async (file) => {
+    const validationError = validateImageFile(file);
+    if (validationError) throw new Error(validationError);
+    const fd = new FormData();
+    fd.append('image', file);
+    const res = await fetch(API_ENDPOINTS.UPLOAD, { method: 'POST', headers: authHeader(), body: fd });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Upload failed (${res.status})`);
+    return data.url;
   };
 
   const fetchData = async () => {
@@ -74,6 +113,16 @@ const AdminPanel = () => {
       } else if (activeTab === 'users') {
         const res = await fetch(API_ENDPOINTS.ADMIN_USERS, { headers: authHeader() });
         setAllUsers(await res.json());
+      } else if (activeTab === 'content') {
+        const res = await fetch(`${API_BASE_URL}/api/content/care-guide`);
+        const data = await res.json();
+        setCareGuide({ title: data.title || 'Care Guide', content: data.content || '' });
+      } else if (activeTab === 'blog') {
+        const res = await fetch(`${API_BASE_URL}/api/blogs`);
+        setBlogs(await res.json());
+      } else if (activeTab === 'pincodes') {
+        const res = await fetch(`${API_BASE_URL}/api/pincodes`);
+        setPincodes(await res.json());
       }
     } catch (err) {
       console.error('Admin fetch error:', err);
@@ -94,6 +143,8 @@ const AdminPanel = () => {
     setFormData({
       name: product.name,
       price: product.price,
+      originalPrice: product.originalPrice || '',
+      description: product.description || '',
       image_url: product.image_url,
       categoryId: product.categoryId?._id || product.categoryId || ''
     });
@@ -103,7 +154,7 @@ const AdminPanel = () => {
 
   const handleCancelEdit = () => {
     setEditingProductId(null);
-    setFormData({ name: '', price: '', image_url: '', categoryId: '' });
+    setFormData({ name: '', price: '', originalPrice: '', description: '', image_url: '', categoryId: '' });
     setImageFile(null);
     const fi = document.getElementById('imageUpload');
     if (fi) fi.value = '';
@@ -115,15 +166,7 @@ const AdminPanel = () => {
     try {
       let finalImageUrl = formData.image_url;
       if (imageFile) {
-        const uploadData = new FormData();
-        uploadData.append('image', imageFile);
-        const uploadRes = await fetch(API_ENDPOINTS.UPLOAD, {
-          method: 'POST',
-          headers: authHeader(),
-          body: uploadData
-        });
-        if (!uploadRes.ok) throw new Error('Upload failed');
-        finalImageUrl = (await uploadRes.json()).url;
+        finalImageUrl = await uploadFile(imageFile);
       }
       if (!finalImageUrl) { setAlertModal('Please provide an image.'); setIsAdding(false); return; }
 
@@ -310,12 +353,127 @@ const AdminPanel = () => {
     );
   }
 
+  const handleContentImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const url = await uploadFile(file);
+      setBlogForm(p => ({ ...p, contentImages: [...(p.contentImages || []), url] }));
+    } catch (err) {
+      setAlertModal(err.message);
+    }
+    e.target.value = '';
+  };
+
+  const resetBlogForm = () => {
+    setBlogForm({ title: '', excerpt: '', content: '', image_url: '', publishedAt: '', h1: '', metaTitle: '', metaKeywords: '', metaDescription: '', contentImages: [] });
+    setEditingBlogId(null);
+    setBlogImageFile(null);
+    const fi = document.getElementById('blogImageUpload');
+    if (fi) fi.value = '';
+  };
+
+  const handleBlogEdit = (blog) => {
+    setBlogForm({
+      title: blog.title,
+      excerpt: blog.excerpt || '',
+      content: blog.content || '',
+      image_url: blog.image_url || '',
+      publishedAt: blog.publishedAt ? blog.publishedAt.slice(0, 10) : '',
+      h1: blog.h1 || '',
+      metaTitle: blog.metaTitle || '',
+      metaKeywords: blog.metaKeywords || '',
+      metaDescription: blog.metaDescription || '',
+      contentImages: blog.contentImages || [],
+    });
+    setEditingBlogId(blog._id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleBlogSave = async (e) => {
+    e.preventDefault();
+    setBlogSaving(true);
+    let finalImageUrl = blogForm.image_url;
+    if (blogImageFile) {
+      try {
+        finalImageUrl = await uploadFile(blogImageFile);
+      } catch (err) {
+        setAlertModal(err.message);
+        setBlogSaving(false);
+        return;
+      }
+    }
+    const method = editingBlogId ? 'PUT' : 'POST';
+    const url = editingBlogId ? `${API_BASE_URL}/api/blogs/${editingBlogId}` : `${API_BASE_URL}/api/blogs`;
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json', ...authHeader() },
+      body: JSON.stringify({ ...blogForm, image_url: finalImageUrl }),
+    });
+    const saved = await res.json();
+    if (editingBlogId) {
+      setBlogs(prev => prev.map(b => b._id === editingBlogId ? saved : b));
+    } else {
+      setBlogs(prev => [saved, ...prev]);
+    }
+    resetBlogForm();
+    setBlogSaving(false);
+  };
+
+  const handleBlogDelete = async (id) => {
+    await fetch(`${API_BASE_URL}/api/blogs/${id}`, { method: 'DELETE', headers: authHeader() });
+    setBlogs(prev => prev.filter(b => b._id !== id));
+    setBlogDeleteId(null);
+  };
+
+  const handleAddPincode = async (e) => {
+    e.preventDefault();
+    if (!pincodeInput.trim()) return;
+    setPincodeAdding(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/pincodes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeader() },
+        body: JSON.stringify({ code: pincodeInput.trim(), area: pincodeArea.trim() }),
+      });
+      const saved = await res.json();
+      if (res.ok) {
+        setPincodes(prev => [...prev, saved].sort((a, b) => a.code.localeCompare(b.code)));
+        setPincodeInput('');
+        setPincodeArea('');
+      }
+    } catch { /* silent */ }
+    setPincodeAdding(false);
+  };
+
+  const handleDeletePincode = async (id) => {
+    await fetch(`${API_BASE_URL}/api/pincodes/${id}`, { method: 'DELETE', headers: authHeader() });
+    setPincodes(prev => prev.filter(p => p._id !== id));
+  };
+
+  const handleSaveCareGuide = async () => {
+    setCareGuideSaving(true);
+    try {
+      await fetch(`${API_BASE_URL}/api/content/care-guide`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeader() },
+        body: JSON.stringify(careGuide),
+      });
+      setCareGuideSaved(true);
+      setTimeout(() => setCareGuideSaved(false), 2500);
+    } catch { /* silent */ }
+    setCareGuideSaving(false);
+  };
+
   const TABS = [
     { id: 'inventory',  label: 'Inventory',  icon: Package },
     { id: 'categories', label: 'Categories', icon: Tag },
     { id: 'orders',     label: 'Orders',     icon: ShoppingBag },
     { id: 'messages',   label: 'Messages',   icon: MessageSquare },
     { id: 'users',      label: 'Users',      icon: Users },
+    { id: 'content',    label: 'Content',    icon: FileText },
+    { id: 'blog',       label: 'Blog',       icon: BookOpen },
+    { id: 'pincodes',   label: 'Pincodes',   icon: MapPin },
   ];
 
   return (
@@ -360,13 +518,17 @@ const AdminPanel = () => {
                     className="w-full border-2 border-gray-50 rounded-xl p-3.5 outline-none focus:border-[#fbbf24] bg-gray-50/50" placeholder="Product Name" />
                   <div className="grid grid-cols-2 gap-3">
                     <input type="number" step="0.01" name="price" required value={formData.price} onChange={handleChange}
-                      className="w-full border-2 border-gray-50 rounded-xl p-3.5 outline-none focus:border-[#fbbf24] bg-gray-50/50" placeholder="Price (₹)" />
-                    <select name="categoryId" value={formData.categoryId} onChange={handleChange}
-                      className="w-full border-2 border-gray-50 rounded-xl p-3.5 outline-none focus:border-[#fbbf24] bg-gray-50/50">
-                      <option value="">Category</option>
-                      {categories.map(cat => <option key={cat._id} value={cat._id}>{cat.name}</option>)}
-                    </select>
+                      className="w-full border-2 border-gray-50 rounded-xl p-3.5 outline-none focus:border-[#fbbf24] bg-gray-50/50" placeholder="Sale Price (₹)" />
+                    <input type="number" step="0.01" name="originalPrice" value={formData.originalPrice} onChange={handleChange}
+                      className="w-full border-2 border-gray-50 rounded-xl p-3.5 outline-none focus:border-[#fbbf24] bg-gray-50/50" placeholder="MRP / Original (₹)" />
                   </div>
+                  <textarea name="description" value={formData.description} onChange={handleChange} rows={3}
+                    className="w-full border-2 border-gray-50 rounded-xl p-3.5 outline-none focus:border-[#fbbf24] bg-gray-50/50 resize-none" placeholder="Product Description (optional)" />
+                  <select name="categoryId" value={formData.categoryId} onChange={handleChange}
+                    className="w-full border-2 border-gray-50 rounded-xl p-3.5 outline-none focus:border-[#fbbf24] bg-gray-50/50">
+                    <option value="">Select Category</option>
+                    {categories.map(cat => <option key={cat._id} value={cat._id}>{cat.name}</option>)}
+                  </select>
                   <input type="url" name="image_url" value={formData.image_url} onChange={handleChange}
                     className="w-full border-2 border-gray-50 rounded-xl p-3.5 outline-none focus:border-[#fbbf24] bg-gray-50/50 mb-2" placeholder="Image URL" disabled={!!imageFile} />
                   <div>
@@ -394,7 +556,7 @@ const AdminPanel = () => {
                       <thead className="bg-gray-50/50 border-b border-gray-100">
                         <tr className="text-gray-400 text-xs font-black uppercase tracking-widest">
                           <th className="p-4 w-[55%]">Product</th>
-                          <th className="p-4 text-right">Price</th>
+                          <th className="p-4 text-right">Price / MRP</th>
                           <th className="p-4 text-center">Actions</th>
                         </tr>
                       </thead>
@@ -410,7 +572,19 @@ const AdminPanel = () => {
                                 </span>
                               </div>
                             </td>
-                            <td className="p-4 text-right font-black text-gray-900">₹{parseFloat(p.price).toLocaleString()}</td>
+                            <td className="p-4 text-right">
+                              <div className="flex flex-col items-end gap-0.5">
+                                <span className="font-black text-gray-900">₹{parseFloat(p.price).toLocaleString()}</span>
+                                {p.originalPrice && parseFloat(p.originalPrice) > parseFloat(p.price) && (
+                                  <>
+                                    <span className="text-xs text-gray-400 line-through">₹{parseFloat(p.originalPrice).toLocaleString()}</span>
+                                    <span className="text-[10px] font-black text-[#c9a84c]">
+                                      {Math.round((parseFloat(p.originalPrice) - parseFloat(p.price)) / parseFloat(p.originalPrice) * 100)}% OFF
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            </td>
                             <td className="p-4 text-center">
                               <div className="flex justify-center gap-1.5">
                                 <button onClick={() => handleEdit(p)} className="p-2.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all border border-transparent hover:border-blue-100"><Edit size={16} /></button>
@@ -625,6 +799,307 @@ const AdminPanel = () => {
         )}
 
         {/* ── USERS TAB ── */}
+        {activeTab === 'content' && (
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-8">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-black text-gray-900">Care Guide</h2>
+              <button
+                onClick={handleSaveCareGuide}
+                disabled={careGuideSaving}
+                className="flex items-center gap-2 bg-[#c9a84c] hover:bg-[#b8953e] disabled:opacity-60 text-white font-bold px-6 py-2.5 rounded-xl transition-colors text-sm"
+              >
+                <Save size={15} />
+                {careGuideSaving ? 'Saving…' : careGuideSaved ? '✓ Saved!' : 'Save'}
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Page Title</label>
+              <input
+                type="text"
+                value={careGuide.title}
+                onChange={e => setCareGuide(p => ({ ...p, title: e.target.value }))}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#c9a84c]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">
+                Content <span className="normal-case font-normal text-gray-400">(HTML supported — use &lt;h2&gt;, &lt;h3&gt;, &lt;p&gt;, &lt;ul&gt;, &lt;li&gt;)</span>
+              </label>
+              <textarea
+                value={careGuide.content}
+                onChange={e => setCareGuide(p => ({ ...p, content: e.target.value }))}
+                rows={28}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-mono outline-none focus:border-[#c9a84c] resize-y"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* ── BLOG TAB ── */}
+        {activeTab === 'blog' && (
+          <div className="grid grid-cols-1 xl:grid-cols-5 gap-8">
+
+            {/* ── Form ── */}
+            <div className="xl:col-span-3">
+              <form onSubmit={handleBlogSave} className="flex flex-col gap-5">
+
+                {/* ── Basic Info ── */}
+                <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+                  <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Basic Info</p>
+                  <div className="flex flex-col gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 mb-1">Post Title <span className="text-red-400">*</span></label>
+                      <input required value={blogForm.title} onChange={e => setBlogForm(p => ({ ...p, title: e.target.value }))}
+                        placeholder="e.g. Best Rakhis Under ₹500"
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#c9a84c]" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 mb-1">Publish Date</label>
+                      <input type="date" value={blogForm.publishedAt} onChange={e => setBlogForm(p => ({ ...p, publishedAt: e.target.value }))}
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#c9a84c]" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 mb-1">Excerpt <span className="font-normal text-gray-400">(shown on listing card)</span></label>
+                      <textarea rows={3} value={blogForm.excerpt} onChange={e => setBlogForm(p => ({ ...p, excerpt: e.target.value }))}
+                        placeholder="Short summary of the post…"
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#c9a84c] resize-none" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Cover Image ── */}
+                <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+                  <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Cover Image</p>
+                  <div className="flex flex-col gap-3">
+                    <input value={blogForm.image_url} onChange={e => setBlogForm(p => ({ ...p, image_url: e.target.value }))}
+                      disabled={!!blogImageFile} placeholder="Paste image URL…"
+                      className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#c9a84c] disabled:opacity-40" />
+                    <input id="blogImageUpload" type="file" accept="image/*" className="hidden"
+                      disabled={!!blogForm.image_url}
+                      onChange={e => { if (e.target.files[0]) setBlogImageFile(e.target.files[0]); }} />
+                    <label htmlFor="blogImageUpload"
+                      className={`flex items-center justify-center gap-2 p-3.5 border-2 border-dashed rounded-xl cursor-pointer transition-all text-sm font-semibold
+                        ${blogForm.image_url ? 'opacity-40 border-gray-100 text-gray-300 cursor-not-allowed' : 'border-gray-200 text-gray-400 hover:border-[#c9a84c] hover:bg-yellow-50'}`}>
+                      <Plus size={15} /> {blogImageFile ? blogImageFile.name : 'Upload from gallery'}
+                    </label>
+                    {blogImageFile && (
+                      <button type="button" onClick={() => { setBlogImageFile(null); const fi = document.getElementById('blogImageUpload'); if (fi) fi.value = ''; }}
+                        className="text-xs text-red-400 hover:text-red-600 text-left">✕ Remove file</button>
+                    )}
+                    {blogForm.image_url && <img src={blogForm.image_url} alt="preview" className="w-full h-32 object-cover rounded-xl mt-1" onError={e => e.target.style.display='none'} />}
+                  </div>
+                </div>
+
+                {/* ── Content Images ── */}
+                <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+                  <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Content Images</p>
+                  <p className="text-xs text-gray-400 mb-4">Upload images to use inside the post — copy the URL and paste it into your HTML content.</p>
+                  <input id="contentImageUpload" type="file" accept="image/*" className="hidden" onChange={handleContentImageUpload} />
+                  <label htmlFor="contentImageUpload"
+                    className="flex items-center justify-center gap-2 p-3.5 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer text-sm font-semibold text-gray-400 hover:border-[#c9a84c] hover:bg-yellow-50 transition-all">
+                    <Plus size={15} /> Upload content image
+                  </label>
+                  {blogForm.contentImages && blogForm.contentImages.length > 0 && (
+                    <div className="mt-4 flex flex-col gap-3">
+                      {blogForm.contentImages.map((url, i) => (
+                        <div key={i} className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
+                          <img src={url} alt="" className="w-14 h-10 object-cover rounded-lg shrink-0" />
+                          <p className="text-xs text-gray-500 font-mono flex-1 break-all truncate">{url}</p>
+                          <button type="button" onClick={() => {
+                            navigator.clipboard.writeText(`<img src="${url}" alt="" />`).catch(() => {});
+                          }} className="text-xs font-bold text-[#c9a84c] hover:underline shrink-0">Copy tag</button>
+                          <button type="button" onClick={() => setBlogForm(p => ({ ...p, contentImages: p.contentImages.filter((_, j) => j !== i) }))}
+                            className="text-gray-300 hover:text-red-400 shrink-0"><Trash2 size={13} /></button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* ── Full Content ── */}
+                <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+                  <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Full Content</p>
+                  <p className="text-xs text-gray-400 mb-4">HTML supported — use &lt;h2&gt;, &lt;p&gt;, &lt;ul&gt;, &lt;img src="…"&gt;, etc.</p>
+                  <textarea rows={16} value={blogForm.content} onChange={e => setBlogForm(p => ({ ...p, content: e.target.value }))}
+                    placeholder="<p>Start writing your post…</p>"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-mono outline-none focus:border-[#c9a84c] resize-y" />
+                </div>
+
+                {/* ── SEO ── */}
+                <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+                  <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">SEO</p>
+                  <div className="flex flex-col gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 mb-1">H1 Heading <span className="font-normal text-gray-400">(page's main visible heading)</span></label>
+                      <input value={blogForm.h1} onChange={e => setBlogForm(p => ({ ...p, h1: e.target.value }))}
+                        placeholder="Same as title or a keyword-rich variant"
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#c9a84c]" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 mb-1">Meta Title <span className="font-normal text-gray-400">(shown in browser tab & search results — 50–60 chars)</span></label>
+                      <input value={blogForm.metaTitle} onChange={e => setBlogForm(p => ({ ...p, metaTitle: e.target.value }))}
+                        placeholder="e.g. Best Rakhis Under ₹500 | FloralAdda"
+                        maxLength={70}
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#c9a84c]" />
+                      <p className="text-right text-xs text-gray-300 mt-1">{blogForm.metaTitle.length}/70</p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 mb-1">Meta Keywords <span className="font-normal text-gray-400">(comma-separated)</span></label>
+                      <input value={blogForm.metaKeywords} onChange={e => setBlogForm(p => ({ ...p, metaKeywords: e.target.value }))}
+                        placeholder="rakhi, raksha bandhan gift, rakhi under 500"
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#c9a84c]" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 mb-1">Meta Description <span className="font-normal text-gray-400">(shown under title in search results — 150–160 chars)</span></label>
+                      <textarea rows={3} value={blogForm.metaDescription} onChange={e => setBlogForm(p => ({ ...p, metaDescription: e.target.value }))}
+                        placeholder="A brief description of the post for search engines…"
+                        maxLength={170}
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#c9a84c] resize-none" />
+                      <p className="text-right text-xs text-gray-300 mt-1">{blogForm.metaDescription.length}/170</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Actions ── */}
+                <div className="flex gap-3 pb-4">
+                  <button type="submit" disabled={blogSaving}
+                    className="flex-1 bg-[#c9a84c] hover:bg-[#b8953e] disabled:opacity-60 text-white font-bold py-3.5 rounded-xl text-sm transition-colors">
+                    {blogSaving ? 'Saving…' : editingBlogId ? 'Update Post' : 'Publish Post'}
+                  </button>
+                  {editingBlogId && (
+                    <button type="button" onClick={resetBlogForm}
+                      className="px-6 border border-gray-200 rounded-xl text-sm text-gray-500 hover:bg-gray-50 transition-colors">
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </form>
+            </div>
+
+            {/* ── Post List ── */}
+            <div className="xl:col-span-2 flex flex-col gap-4">
+              <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-5">
+                <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Published Posts ({blogs.length})</p>
+                {loading ? (
+                  <div className="flex justify-center py-10"><Loader2 className="animate-spin text-[#c9a84c]" /></div>
+                ) : blogs.length === 0 ? (
+                  <p className="text-center py-10 text-gray-400 text-sm">No posts yet.</p>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {blogs.map(blog => (
+                      <div key={blog._id} className="flex gap-3 items-start p-3 rounded-2xl hover:bg-gray-50 transition-colors">
+                        {blog.image_url
+                          ? <img src={blog.image_url} alt={blog.title} className="w-16 h-12 object-cover rounded-xl shrink-0" />
+                          : <div className="w-16 h-12 rounded-xl bg-gray-100 shrink-0 flex items-center justify-center text-xl">📝</div>
+                        }
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] text-gray-400 mb-0.5">{new Date(blog.publishedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                          <p className="font-bold text-gray-900 text-xs line-clamp-2 leading-snug">{blog.title}</p>
+                        </div>
+                        <div className="flex flex-col gap-1.5 shrink-0">
+                          <button onClick={() => handleBlogEdit(blog)} className="p-1.5 text-gray-400 hover:text-[#c9a84c] hover:bg-yellow-50 rounded-lg transition-all">
+                            <Edit size={13} />
+                          </button>
+                          <button onClick={() => setBlogDeleteId(blog._id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* ── PINCODES TAB ── */}
+        {activeTab === 'pincodes' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+            {/* Add form */}
+            <div className="lg:col-span-1">
+              <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 sticky top-6">
+                <h2 className="text-lg font-black text-gray-900 mb-1">Add Pincode</h2>
+                <p className="text-xs text-gray-400 mb-5">Orders to unlisted pincodes will be rejected at checkout.</p>
+                <form onSubmit={handleAddPincode} className="flex flex-col gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1">Pincode <span className="text-red-400">*</span></label>
+                    <input
+                      required
+                      value={pincodeInput}
+                      onChange={e => setPincodeInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="e.g. 342001"
+                      maxLength={6}
+                      className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#c9a84c] font-mono tracking-widest"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1">Area / Label <span className="font-normal text-gray-400">(optional)</span></label>
+                    <input
+                      value={pincodeArea}
+                      onChange={e => setPincodeArea(e.target.value)}
+                      placeholder="e.g. Jodhpur City"
+                      className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#c9a84c]"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={pincodeAdding || pincodeInput.length < 4}
+                    className="w-full bg-[#c9a84c] hover:bg-[#b8953e] disabled:opacity-50 text-white font-bold py-3 rounded-xl text-sm transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Plus size={15} /> {pincodeAdding ? 'Adding…' : 'Add Pincode'}
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            {/* Pincode list */}
+            <div className="lg:col-span-2">
+              <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="p-5 border-b border-gray-50 flex items-center justify-between">
+                  <h2 className="text-lg font-black text-gray-900">Deliverable Pincodes</h2>
+                  <span className="text-xs font-bold bg-[#f9f5ee] text-[#c9a84c] px-3 py-1.5 rounded-full">{pincodes.length} pincode{pincodes.length !== 1 ? 's' : ''}</span>
+                </div>
+                {loading ? (
+                  <div className="flex justify-center py-16"><Loader2 className="animate-spin text-[#c9a84c]" /></div>
+                ) : pincodes.length === 0 ? (
+                  <div className="text-center py-16 text-gray-400">
+                    <MapPin size={36} className="mx-auto mb-3 opacity-20" />
+                    <p className="text-sm font-semibold">No pincodes added yet.</p>
+                    <p className="text-xs mt-1">Add pincodes to enable delivery for those areas.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-50">
+                    {pincodes.map(p => (
+                      <div key={p._id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50/50 transition-colors group">
+                        <div className="w-9 h-9 rounded-xl bg-[#f9f5ee] flex items-center justify-center shrink-0">
+                          <MapPin size={16} className="text-[#c9a84c]" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <span className="font-bold text-gray-900 font-mono text-sm tracking-wider">{p.code}</span>
+                          {p.area && <span className="ml-2 text-xs text-gray-400">{p.area}</span>}
+                        </div>
+                        <button
+                          onClick={() => handleDeletePincode(p._id)}
+                          className="opacity-0 group-hover:opacity-100 p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                          title="Remove pincode"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+          </div>
+        )}
+
         {activeTab === 'users' && (
           <div>
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
@@ -817,6 +1292,24 @@ const AdminPanel = () => {
               >
                 Delete
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Blog Delete Modal */}
+      {blogDeleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setBlogDeleteId(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 border border-red-100">
+            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-5">
+              <Trash2 size={28} className="text-red-500" />
+            </div>
+            <h3 className="text-xl font-black text-gray-900 text-center mb-2">Delete Post?</h3>
+            <p className="text-gray-500 text-sm text-center mb-8">This blog post will be permanently deleted.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setBlogDeleteId(null)} className="flex-1 py-3 rounded-xl font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-all">Cancel</button>
+              <button onClick={() => handleBlogDelete(blogDeleteId)} className="flex-1 py-3 rounded-xl font-bold text-white bg-red-500 hover:bg-red-600 transition-all">Delete</button>
             </div>
           </div>
         </div>

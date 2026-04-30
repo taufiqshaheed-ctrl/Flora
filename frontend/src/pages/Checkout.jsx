@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle, ShieldCheck, MapPin, Plus, ChevronRight, X } from 'lucide-react';
-import { API_ENDPOINTS } from '../config';
+import { API_ENDPOINTS, API_BASE_URL } from '../config';
 import { useCart } from '../context/CartContext';
 import { useOrders } from '../context/OrderContext';
 import { useAuth } from '../context/AuthContext';
@@ -41,6 +41,8 @@ const Checkout = () => {
   const [formData, setFormData] = useState({ name: '', phone: '', address: '', city: '', pincode: '' });
   const [countryCode, setCountryCode] = useState('+91');
   const [formError, setFormError] = useState('');
+  const [pincodeStatus, setPincodeStatus] = useState(null); // null | 'checking' | 'ok' | 'invalid'
+  const [pincodeArea, setPincodeArea] = useState('');
   
   // Address Selection State
   const [savedAddresses, setSavedAddresses] = useState([]);
@@ -80,7 +82,20 @@ const Checkout = () => {
   };
 
   
-  const handlePayment = () => {
+  const checkPincode = async (code) => {
+    if (!code || code.trim().length < 4) { setPincodeStatus(null); setPincodeArea(''); return; }
+    setPincodeStatus('checking');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/pincodes/check/${code.trim()}`);
+      const data = await res.json();
+      setPincodeStatus(data.deliverable ? 'ok' : 'invalid');
+      setPincodeArea(data.area || '');
+    } catch {
+      setPincodeStatus(null);
+    }
+  };
+
+  const handlePayment = async () => {
     console.log('--- Checkout: Starting payment process ---');
     if (!user) {
       console.log('User not logged in, redirecting to login');
@@ -112,6 +127,24 @@ const Checkout = () => {
     if (!formData.pincode?.trim()) {
       setFormError('Please enter your PIN code.');
       return;
+    }
+    if (pincodeStatus === 'invalid') {
+      setFormError("Sorry, we don't deliver to this pincode. Please try a different address.");
+      return;
+    }
+    if (pincodeStatus === 'checking' || pincodeStatus === null) {
+      // check synchronously before proceeding
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/pincodes/check/${formData.pincode.trim()}`);
+        const data = await res.json();
+        if (!data.deliverable) {
+          setFormError("Sorry, we don't deliver to this pincode. Please try a different address.");
+          setPincodeStatus('invalid');
+          return;
+        }
+        setPincodeStatus('ok');
+        setPincodeArea(data.area || '');
+      } catch { /* allow if API fails */ }
     }
 
     setFormError('');
@@ -306,13 +339,37 @@ const Checkout = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">PIN Code <span className="text-red-500">*</span></label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={formData.pincode}
-                    onChange={(e) => setFormData({...formData, pincode: e.target.value})}
-                    className="w-full border border-gray-300 rounded-md p-2.5 focus:ring-2 focus:ring-[#fbbf24] outline-none" 
-                    placeholder="400001" 
+                    maxLength={6}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '');
+                      setFormData({...formData, pincode: val});
+                      setPincodeStatus(null);
+                      setPincodeArea('');
+                    }}
+                    onBlur={(e) => checkPincode(e.target.value)}
+                    className={`w-full border rounded-md p-2.5 focus:ring-2 outline-none transition-colors ${
+                      pincodeStatus === 'ok'      ? 'border-green-400 focus:ring-green-200' :
+                      pincodeStatus === 'invalid' ? 'border-red-400 focus:ring-red-200' :
+                                                    'border-gray-300 focus:ring-[#fbbf24]'
+                    }`}
+                    placeholder="e.g. 342001"
                   />
+                  {pincodeStatus === 'checking' && (
+                    <p className="text-xs text-gray-400 mt-1">Checking delivery availability…</p>
+                  )}
+                  {pincodeStatus === 'ok' && (
+                    <p className="text-xs text-green-600 font-semibold mt-1">
+                      ✓ Delivery available{pincodeArea ? ` — ${pincodeArea}` : ''}
+                    </p>
+                  )}
+                  {pincodeStatus === 'invalid' && (
+                    <p className="text-xs text-red-500 font-semibold mt-1">
+                      ✕ Sorry, we don't deliver to this pincode.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

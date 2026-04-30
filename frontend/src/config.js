@@ -16,5 +16,6 @@ export const API_ENDPOINTS = {
   UPLOAD: `${API_BASE_URL}/api/upload`,
   ADDRESSES: `${API_BASE_URL}/api/addresses`,
   ADMIN_ORDERS: `${API_BASE_URL}/api/admin/orders`,
-  ADMIN_USERS: `${API_BASE_URL}/api/admin/users`
+  ADMIN_USERS: `${API_BASE_URL}/api/admin/users`,
+  WISHLIST: `${API_BASE_URL}/api/wishlist`
 };
