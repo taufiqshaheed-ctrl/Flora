@@ -82,9 +82,6 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// Preflight must use the same config — app.options('*', cors()) without args allows ALL origins
-app.options('*', cors(corsOptions));
-
 // --- BODY PARSER ---
 // Increased to 10mb — blog HTML content can exceed the old 10kb limit
 app.use(express.json({ limit: '10mb' }));
