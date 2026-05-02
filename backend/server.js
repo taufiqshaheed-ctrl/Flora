@@ -54,32 +54,36 @@ app.use(compression());
 app.use(morgan(NODE_ENV === 'production' ? 'combined' : 'dev'));
 
 // --- CORS ---
-// Normalize origin: strip trailing slash, lowercase protocol for comparison
 const normalizeOrigin = (o) => (o || '').replace(/\/$/, '').toLowerCase();
+
+// Always include the production domain regardless of env vars
 const ALLOWED_ORIGINS = [
   FRONTEND_URL,
+  'https://floraladda.in',
+  'https://www.floraladda.in',
   ...(process.env.ADDITIONAL_ORIGINS || '').split(',').filter(Boolean),
-].map(normalizeOrigin);
+].map(normalizeOrigin).filter(Boolean);
 
-app.use(cors({
+const corsOptions = {
   origin: (origin, callback) => {
-    // Allow non-browser requests (mobile apps, server-to-server, curl)
+    // Allow non-browser requests (mobile apps, Postman, server-to-server)
     if (!origin) return callback(null, true);
     if (ALLOWED_ORIGINS.includes(normalizeOrigin(origin))) {
-      callback(null, true);
-    } else {
-      console.warn(`CORS blocked origin: ${origin}`);
-      callback(new Error(`Origin ${origin} not allowed by CORS`));
+      return callback(null, true);
     }
+    console.warn(`CORS blocked origin: ${origin}`);
+    return callback(null, false); // return false, not an Error — avoids 500, sends proper CORS rejection
   },
   credentials: true,
-  optionsSuccessStatus: 200,
+  optionsSuccessStatus: 204,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-}));
+};
 
-// Explicit preflight for all routes
-app.options('*', cors());
+app.use(cors(corsOptions));
+
+// Preflight must use the same config — app.options('*', cors()) without args allows ALL origins
+app.options('*', cors(corsOptions));
 
 // --- BODY PARSER ---
 // Increased to 10mb — blog HTML content can exceed the old 10kb limit
