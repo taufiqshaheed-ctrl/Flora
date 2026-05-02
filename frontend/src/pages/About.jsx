@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, Phone, Mail, Clock, Heart, Star, Users, Leaf } from 'lucide-react';
+import heroImg from '../assets/slider.png/image1.jpeg';
 
 const About = () => {
   return (
@@ -39,7 +40,7 @@ const About = () => {
           </div>
           <div className="relative">
             <img
-              src="https://images.unsplash.com/photo-1487530811015-780c38d2bc37?w=700&q=80"
+              src={heroImg}
               alt="Floral Adda store"
               className="rounded-3xl shadow-2xl w-full object-cover h-[450px]"
             />
