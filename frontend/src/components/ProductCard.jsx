@@ -2,19 +2,34 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { Heart, Plus } from 'lucide-react';
 
 const ProductCard = ({ product, onAddToCart }) => {
   const { addToCart } = useCart();
   const { isWishlisted, toggleWishlist } = useWishlist();
   const { user } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
   const wishlisted = isWishlisted(product._id);
 
   const handleWishlist = async (e) => {
     e.preventDefault();
     if (!user) { navigate('/login'); return; }
-    toggleWishlist(product);
+    const added = await toggleWishlist(product);
+    showToast(
+      added ? `"${product.name}" added to wishlist` : `Removed from wishlist`,
+      added ? 'wishlist' : 'remove'
+    );
+  };
+
+  const handleAddToCart = () => {
+    if (onAddToCart) {
+      onAddToCart(product);
+    } else {
+      addToCart(product, 1);
+    }
+    showToast(`"${product.name}" added to cart`);
   };
 
   const price = parseFloat(product.price);
@@ -55,19 +70,16 @@ const ProductCard = ({ product, onAddToCart }) => {
 
       {/* Info */}
       <div className="pt-3 flex flex-col gap-2">
-        {/* Product name */}
         <Link to={`/product/${product._id}`} className="text-[15px] text-gray-900 font-normal leading-snug line-clamp-2 hover:text-[#c9a84c] transition-colors">
           {product.name}
         </Link>
 
-        {/* Description */}
         {product.description && (
           <p className="text-xs text-gray-400 leading-relaxed line-clamp-2">
             {product.description}
           </p>
         )}
 
-        {/* Pricing row */}
         <div className="flex items-baseline gap-2 flex-wrap">
           <span className="text-[17px] font-bold text-gray-900">₹{fmt(price)}</span>
           {hasDiscount && (
@@ -78,9 +90,8 @@ const ProductCard = ({ product, onAddToCart }) => {
           )}
         </div>
 
-        {/* ADD + button — left aligned, sized to content */}
         <button
-          onClick={() => onAddToCart ? onAddToCart(product) : addToCart(product, 1)}
+          onClick={handleAddToCart}
           className="mt-1 self-start flex items-center gap-1.5 border border-[#c9a84c] text-[#c9a84c] hover:bg-[#c9a84c] hover:text-white font-semibold text-sm px-5 py-2 rounded transition-colors duration-200"
         >
           ADD <Plus size={14} strokeWidth={2.5} />

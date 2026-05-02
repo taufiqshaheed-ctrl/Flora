@@ -32,18 +32,20 @@ import { CartProvider } from './context/CartContext';
 import { OrderProvider } from './context/OrderContext';
 import { AuthProvider } from './context/AuthContext';
 import { WishlistProvider } from './context/WishlistContext';
+import { ToastProvider } from './context/ToastContext';
 import WishlistPage from './pages/WishlistPage';
 
 function App() {
   return (
     <AuthProvider>
+      <ToastProvider>
       <WishlistProvider>
       <OrderProvider>
         <CartProvider>
         <Router>
           <div className="font-sans text-gray-900 min-h-screen flex flex-col selection:bg-[#fbbf24] selection:text-gray-900">
             <Header />
-            <main className="flex-grow">
+            <main className="flex-grow pb-16 md:pb-0">
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/delivery" element={<Delivery />} />
@@ -84,6 +86,7 @@ function App() {
       </CartProvider>
     </OrderProvider>
     </WishlistProvider>
+    </ToastProvider>
     </AuthProvider>
   );
 }
